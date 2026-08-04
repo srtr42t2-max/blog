@@ -39,12 +39,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build site
-        run: |
-          pnpm run build
-          # 重组产物:全部内容移入 blog/ 子目录(与 astro.config.mjs 的 base 对应)
-          cd dist
-          mkdir blog
-          find . -mindepth 1 -maxdepth 1 ! -name blog -exec mv {} blog/ \;
+        run: pnpm run build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
