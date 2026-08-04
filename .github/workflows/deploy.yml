@@ -43,5 +43,5 @@ jobs:
         with:
           branch: pages # 部署到pages分支
           folder: dist # Astro默认构建输出目录
-          basePath: /blog # 与 astro.config.mjs 的 base 保持一致，产物放入 blog/ 子目录
+          target-folder: blog # 与 astro.config.mjs 的 base 保持一致，产物放入 pages 分支的 blog/ 子目录
           clean: true # 清理目标分支中的旧文件
