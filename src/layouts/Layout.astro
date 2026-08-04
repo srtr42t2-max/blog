@@ -13,6 +13,7 @@ const BANNER_HEIGHT_EXTEND = 30;
 const BANNER_HEIGHT_HOME = BANNER_HEIGHT + BANNER_HEIGHT_EXTEND;
 
 import { PAGE_WIDTH } from "../constants/constants";
+import { url } from "../utils/url-utils";
 import "../styles/main.css";
 import "../styles/mobile-navbar.css";
 import "../styles/wallpaper-navbar-transparent.css";
@@ -104,18 +105,18 @@ if (title) {
 }
 
 let ogImageUrl: string | undefined;
+const absoluteAssetUrl = (path: string) =>
+	path.startsWith("http")
+		? path
+		: new URL(url(path), Astro.site).toString();
 if (siteConfig.generateOgImages && postSlug) {
 	ogImageUrl = new URL(`/og/${postSlug}.png`, Astro.site).toString();
 } else if (coverImage) {
 	// For post pages with cover images, use the resolved cover image
-	ogImageUrl = coverImage.startsWith("http")
-		? coverImage
-		: new URL(coverImage, Astro.site).toString();
+	ogImageUrl = absoluteAssetUrl(coverImage);
 } else if (banner) {
 	// For others, use the first banner as OG image
-	ogImageUrl = banner.startsWith("http")
-		? banner
-		: new URL(banner, Astro.site).toString();
+	ogImageUrl = absoluteAssetUrl(banner);
 }
 
 // const siteLang = siteConfig.lang.replace('_', '-')

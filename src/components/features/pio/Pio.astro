@@ -1,5 +1,6 @@
 ---
 import type { PioConfig } from "@/types/config";
+import { url } from "@/utils/url-utils";
 
 interface Props {
 	config: PioConfig;
@@ -8,9 +9,12 @@ interface Props {
 const { config } = Astro.props;
 
 const modelPaths = config.models ?? ["/pio/models/NOIR/noir.model3.json"];
-const modelConfigs = modelPaths.map((p) => ({ path: p }));
+const modelConfigs = modelPaths.map((p) => ({
+	path: p.startsWith("http") ? p : url(p),
+}));
 
 const position = config.position === "right" ? "bottom-right" : "bottom-left";
+const homeUrl = url("/");
 
 const tipsData: Record<string, unknown> = {};
 if (config.tips) {
@@ -60,7 +64,7 @@ const isRight = config.position === "right";
 
 <iframe
 	id="l2d-iframe"
-	src="/pio/live2d-host.html"
+	src={url("/pio/live2d-host.html")}
 	allowtransparency="true"
 	style={"position: fixed; z-index: 999; pointer-events: none; border: none; bottom: 0;"
 		+ (isRight ? " right: 0;" : " left: 0;")
@@ -70,6 +74,7 @@ const isRight = config.position === "right";
 	data-config={JSON.stringify(widgetConfig)}
 	data-hidden-on-mobile={hiddenOnMobile ? "true" : "false"}
 	data-width={widgetWidth}
+	data-home-url={homeUrl}
 ></iframe>
 
 <script>
@@ -102,10 +107,11 @@ const isRight = config.position === "right";
 	if (el && configSource) {
 		const config = JSON.parse(configSource.dataset.config || "{}");
 		const hiddenOnMobile = configSource.dataset.hiddenOnMobile === "true";
+		const homeUrl = configSource.dataset.homeUrl || "/";
 
 		if (!win.__mizukiPioController) {
 			const menuActions: Record<string, () => void> = {
-				home: () => (window.location.href = "/"),
+				home: () => (window.location.href = homeUrl),
 				scrollToTop: () => window.scrollTo({ top: 0, behavior: "smooth" }),
 			};
 
