@@ -36,12 +36,19 @@ jobs:
         run: pnpm install --no-frozen-lockfile
       
       - name: Build site
-        run: pnpm run build
+        run: |
+          pnpm run build
+          # 重组产物:全部内容移入 blog/ 子目录(与 base 对应),
+          # 并在分支根放置 .nojekyll,禁用 Jekyll 以免 _astro 等
+          # 下划线开头的目录被静默忽略
+          cd dist
+          mkdir blog
+          find . -mindepth 1 -maxdepth 1 ! -name blog -exec mv {} blog/ \;
+          touch .nojekyll
 
       - name: Deploy to pages branch
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           branch: pages # 部署到pages分支
-          folder: dist # Astro默认构建输出目录
-          target-folder: blog # 与 astro.config.mjs 的 base 保持一致，产物放入 pages 分支的 blog/ 子目录
+          folder: dist # 产物已重组为 blog/ 结构并含根级 .nojekyll
           clean: true # 清理目标分支中的旧文件
