@@ -129,6 +129,11 @@ import { LinkPreset } from "../types/config";
 export const navBarConfig: NavBarConfig = {
 	links: [
 		LinkPreset.Home,
+		{
+			name: "AI Infra",
+			url: "/posts/ai-infra/roadmap/",
+			icon: "material-symbols:memory-alt-outline",
+		},
 		LinkPreset.Archive,
 		{
 			name: "关于",
