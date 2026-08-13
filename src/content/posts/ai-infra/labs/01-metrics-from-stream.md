@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "不用 GPU，通过一组带时间戳的请求事件实现指标计算，并识别平均值隐藏的卡顿。"
 tags: ["AI Infra", "LLM 推理", "实验", "Benchmark", "日志分析", "SLO"]
 category: "AI Infra · 实验"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

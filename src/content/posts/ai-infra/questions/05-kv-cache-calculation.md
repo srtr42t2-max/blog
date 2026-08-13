@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "用公式、单位换算和分布式边界完成一笔可审计的 KV 显存估算。"
 tags: ["AI Infra", "LLM 推理", "面试题", "KV Cache", "显存估算", "GQA"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

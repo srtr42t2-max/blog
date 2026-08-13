@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "从模型配置推导理论 KV 占用，再模拟分页 Block 分配对并发容量的影响。"
 tags: ["AI Infra", "LLM 推理", "实验", "KV Cache", "容量规划", "Block Size"]
 category: "AI Infra · 实验"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

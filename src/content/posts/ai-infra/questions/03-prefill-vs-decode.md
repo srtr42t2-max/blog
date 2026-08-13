@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "从算术强度、矩阵形状和 KV 读取解释经验规律的适用边界。"
 tags: ["AI Infra", "LLM 推理", "面试题", "Prefill", "Decode", "Roofline"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

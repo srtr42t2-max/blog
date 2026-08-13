@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "用 Goodput 和公平的实验设计回答吞吐与用户体验冲突。"
 tags: ["AI Infra", "LLM 推理", "面试题", "Goodput", "尾延迟", "性能比较"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

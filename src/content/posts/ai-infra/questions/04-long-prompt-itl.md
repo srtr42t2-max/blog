@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "考察 iteration-level 调度、统一 token budget 与 TTFT/ITL 权衡。"
 tags: ["AI Infra", "LLM 推理", "面试题", "Chunked Prefill", "调度", "ITL"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

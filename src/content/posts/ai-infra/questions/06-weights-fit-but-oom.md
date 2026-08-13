@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "用完整显存账本定位压测时才出现的 OOM，而不是只盯着模型参数量。"
 tags: ["AI Infra", "LLM 推理", "面试题", "OOM", "KV Cache", "容量规划"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

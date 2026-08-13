@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "从逻辑块、物理块和 Block Table 讲清分页 KV 管理的收益边界。"
 tags: ["AI Infra", "LLM 推理", "面试题", "PagedAttention", "Block Table", "Prefix Cache"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

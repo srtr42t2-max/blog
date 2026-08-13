@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "统一 TTFT、ITL、TPOT、吞吐与 Goodput 的定义，建立所有性能讨论都能复现的测量边界。"
 tags: ["AI Infra", "LLM 推理", "概念", "TTFT", "TPOT", "ITL", "Goodput", "Benchmark"]
 category: "AI Infra · 系统学习"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "沿着数据流拆开自回归生成的两个阶段，并用 Roofline 理解二者不同的性能瓶颈。"
 tags: ["AI Infra", "LLM 推理", "概念", "Prefill", "Decode", "Roofline", "Continuous Batching"]
 category: "AI Infra · 系统学习"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

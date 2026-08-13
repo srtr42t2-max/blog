@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "从 Tensor 形状推导每 token 的 KV 占用，并把理论容量扩展为真实在线服务显存账本。"
 tags: ["AI Infra", "LLM 推理", "概念", "KV Cache", "GQA", "显存", "容量规划"]
 category: "AI Infra · 系统学习"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

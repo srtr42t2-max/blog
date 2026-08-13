@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "这道题考察你是否能先固定测量边界，再讨论推理系统性能。"
 tags: ["AI Infra", "LLM 推理", "面试题", "指标", "Benchmark", "SLO"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

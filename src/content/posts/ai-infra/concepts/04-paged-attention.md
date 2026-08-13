@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "从逻辑块到物理 KV Block，理解分页管理减少了什么、没有减少什么，以及它如何影响调度。"
 tags: ["AI Infra", "LLM 推理", "概念", "PagedAttention", "Block Table", "Prefix Cache", "抢占"]
 category: "AI Infra · 系统学习"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---

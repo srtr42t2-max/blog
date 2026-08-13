@@ -4,7 +4,7 @@ published: 2026-08-12
 description: "分析分页粒度、元数据开销和前缀复用的真实收益。"
 tags: ["AI Infra", "LLM 推理", "面试题", "Block Size", "Prefix Cache", "性能权衡"]
 category: "AI Infra · 面试题"
-draft: false
+draft: true
 lang: zh_CN
 comment: true
 ---
