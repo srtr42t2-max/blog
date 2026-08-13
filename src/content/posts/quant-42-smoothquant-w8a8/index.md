@@ -21,7 +21,7 @@ image: ./4.2-smoothquant-outlier.png
 
 ## 本章简介
 
-本篇是《AIInfraGuide》模块四（推理优化）第 4 章"量化"的第 2 篇，全章共 6 篇。第 4.1 篇《INT8 量化实战指南》讲了量化的基本映射、误差界与粒度选择，结尾留了一个伏笔：权重、激活、KV Cache 是三种不同的量化对象，其中激活最难——难在 Activation Outlier（激活离群点）。本篇就集中解决这一个问题：
+本篇是《AIInfraGuide》模块四（推理优化）第 4 章"量化"的第 2 篇，全章共 6 篇。第 4.1 篇《量化基础：从 FP32 到 INT4 的压缩艺术》讲了量化的基本映射、误差界与粒度选择，结尾留了一个伏笔：权重、激活、KV Cache 是三种不同的量化对象，其中激活最难——难在 Activation Outlier（激活离群点）。本篇就集中解决这一个问题：
 
 - 为什么直接对激活做 INT8 量化会把模型打崩？（现象与机理）
 - SmoothQuant 如何用一次数学上严格等价的变换，把量化难度从激活迁移到权重？（原理与公式）
@@ -277,7 +277,7 @@ flowchart TD
 把以上落成一次真实操作。工具链用 vLLM 官方的 LLM Compressor（SmoothQuant 官方库 mit-han-lab/smoothquant 亦可，接口更研究向），流程四步：准备校准数据 → oneshot 应用 SmoothQuant+INT8 → 保存 compressed-tensors 格式 → vLLM 部署。
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 pip install llmcompressor datasets transformers accelerate
 ```
 
@@ -331,7 +331,7 @@ tokenizer.save_pretrained(SAVE_DIR)
 部署与基准测试：
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 vllm serve ./Meta-Llama-3-8B-Instruct-W8A8-Dynamic-Per-Token --max-model-len 8192
 
 # 吞吐基准（vLLM 仓库自带脚本，在 vLLM 仓库根目录运行）
@@ -399,7 +399,7 @@ Llama-3-8B 没有论文官方 W8A8 数字，以下用论文在 OPT/LLaMA 上的�
 - **LLM.int8()**（Dettmers et al., 2022）：Activation Outlier 现象的首次系统报道，混合精度路线的原点；
 - **Outlier Suppression**（Wei et al., 2022）：另一条"压制 outlier"路线（non-scaling LayerNorm + token-wise clipping），在小模型上有效、在 175B 上失败，其失败原因本身很有启发；
 - **ZeroQuant**（Yao et al., 2022）：per-token + group-wise 的早期方案，有助于理解 SmoothQuant 对比基线的上下文；
-- **本系列**：第 4.1 篇《INT8 量化实战指南：从数学原理到工程落地的完整思路》（量化基础与粒度选择），第 4.3 篇（GPTQ 与低比特权重量化，预告）。
+- **本系列**：第 4.1 篇《量化基础：从 FP32 到 INT4 的压缩艺术》（量化基础与粒度选择），第 4.3 篇（GPTQ 与低比特权重量化，预告）。
 
 ## 参考文献
 

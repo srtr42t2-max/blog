@@ -265,7 +265,7 @@ NVFP4 的两级缩放各司其职：FP32 的 α 解决"整个 tensor 整体偏�
 
 | 代际 | 代表 GPU | 新增低精度格式 | 低精度峰值（稠密） | 同代 FP16/BF16（稠密） |
 |---|---|---|---|---|
-| Ampere | A100 80GB | INT8（FP16/BF16 已存在） | INT8 624 TOPS | 312 TFLOPS |
+| Ampere | A100 80GB | TF32/BF16（INT8 Tensor Core 自 Turing 已有） | INT8 624 TOPS | 312 TFLOPS |
 | Hopper | H100 SXM | FP8（E4M3/E5M2） | FP8 1979 TFLOPS | 989 TFLOPS |
 | Blackwell | B200 | NVFP4、MXFP4/6/8、FP6 | FP4 ≈ 9 PFLOPS；FP8 ≈ 4.5 PFLOPS | ≈ 2.25 PFLOPS |
 
@@ -306,7 +306,7 @@ flowchart TD
 FP8 更大的图景是打通训练与推理。两条标志性工作：
 
 - **FP8-LM**（Microsoft，2023）：系统验证 FP8 训练 LLM 的可行性——前向 GEMM 用 E4M3、反向梯度用 E5M2，并在缩放因子、梯度累加等环节给出完整配方，报告在 GPT 类模型上相对 BF16 基线精度基本无损；
-- **DeepSeek-V3**（DeepSeek-AI，2024）：首个公开的大规模 FP8 混合精度训练旗舰。它没有采用 TE 的 per-tensor 方案，而是**细粒度缩放**：激活按 1×128 tile 缩放、权重按 128×128 块缩放（介于 per-tensor 与 Blackwell 的 16/32 块之间）；同时把 FP8 GEMM 的低精度累加每隔 128 次 MMA 提升到 CUDA Core 上做 FP32 累加，缓解 Tensor Core 截断累加的误差。
+- **DeepSeek-V3**（DeepSeek-AI，2024）：首个公开的大规模 FP8 混合精度训练旗舰。它没有采用 TE 的 per-tensor 方案，而是**细粒度缩放**：激活按 1×128 tile 缩放、权重按 128×128 块缩放（介于 per-tensor 与 Blackwell 的 16/32 块之间）；同时把 FP8 GEMM 的低精度累加沿 K 维每累加 128 个元素（对应每 4 次 WGMMA）提升到 CUDA Core 上做 FP32 累加，缓解 Tensor Core 截断累加的误差。
 
 "统一"的价值在于闭环：FP8 训出的模型，权重天然落在 FP8 可表示分布内，推理时无需再做 PTQ 重量化，训练精度就是推理精度的上界基线；推理框架（TensorRT-LLM/vLLM/SGLang）对 FP8 checkpoint 的支持也都以"直接加载"为默认路径。NVFP4 训练论文进一步把这个闭环延伸到 4-bit：训练用 NVFP4、推理也消费 NVFP4，中间没有格式转换的精度台阶。
 
@@ -317,9 +317,9 @@ FP8 更大的图景是打通训练与推理。两条标志性工作：
 标准流程两步：先量化出带 scale 的 checkpoint，再编译成引擎：
 
 ```bash
-# 测试环境：H100 80GB SXM, CUDA 12.8, TensorRT-LLM 0.17+, torch 2.6
+# 测试环境：H100 80GB SXM, CUDA 12.8, TensorRT-LLM 0.17+, torch 2.6（核验于 2026-08-13）
 # 步骤 1：离线量化（静态 per-tensor scale，需校准集）
-cd TensorRT-LLM/examples/quantize
+cd TensorRT-LLM/examples/quantization
 python quantize.py \
     --model_dir meta-llama/Meta-Llama-3.1-8B-Instruct \
     --qformat fp8 \
@@ -344,7 +344,7 @@ trtllm-serve ./engine/llama-3.1-8b-fp8 --port 8000
 ### 7.2 H100：vLLM 一行启动（免校准路线）
 
 ```bash
-# 测试环境：H100 80GB SXM, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB SXM, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 # 动态 FP8：在线 per-token 激活缩放 + FP8 权重，无需校准集
 vllm serve meta-llama/Meta-Llama-3.1-8B-Instruct \
     --quantization fp8 \
@@ -393,7 +393,7 @@ Ampere 没有 FP8 Tensor Core，FP8 权重只能反量化回 FP16 再算——�
 5. **选型先看硬件代际**：Ampere 留 INT8，Hopper 上 FP8，Blackwell 上 NVFP4 起步于"权重 + 校准"。算力账本：A100 INT8 624 TOPS → H100 FP8 1979 TFLOPS → B200 FP4 约 9 PFLOPS（官方规格，稠密）。
 6. **闭环正在形成**：FP8-LM、DeepSeek-V3 到 NVFP4 训练论文，训练与推理用同一数值格式，PTQ 的精度台阶正在消失。
 
-下一篇（第 4.6 篇）将跳出单格式视角，讨论多精度混合的推理系统设计。
+下一篇（第 4.6 篇）收束全章：量化选型决策树，以及在 vLLM 中落地量化的生产部署实战。
 
 ## 10. 延伸阅读
 
@@ -402,7 +402,7 @@ Ampere 没有 FP8 Tensor Core，FP8 权重只能反量化回 FP16 再算——�
 - **DeepSeek-V3 Technical Report**（DeepSeek-AI, 2024）：细粒度 FP8 scaling（1×128 tile / 128×128 block）与高精度累加策略，工程细节密度极高；
 - **Pretraining Large Language Models with NVFP4**（NVIDIA, 2025）：NVFP4 两级缩放的消融与 12B/10T-token 训练验证，第 4 节的主要来源；
 - **OCP Microscaling Formats (MX) Specification v1.0**（OCP, 2023）：MXFP4/MXFP6/MXFP8 的标准定义，E8M0 共享指数的设计文档；
-- 站内相关：本系列前篇《INT8 量化实战指南：从数学原理到工程落地的完整思路》（粒度与误差界的基础），以及 KV Cache 量化篇（FP8 KV 的粒度方向问题）。
+- 站内相关：本系列第 4.1 篇《量化基础：从 FP32 到 INT4 的压缩艺术》（粒度与误差界的基础），以及第 4.4 篇《KV Cache 量化：KIVI 2-bit 与 FP8 KV Cache》（FP8 KV 的粒度方向问题）。
 
 ## 11. 参考文献
 
