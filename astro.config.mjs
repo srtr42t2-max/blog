@@ -56,43 +56,6 @@ export default defineConfig({
 			provider: fontProviders.fontsource(),
 			styles: ["normal", "italic"],
 		},
-		{
-			name: "ZenMaruGothic-Medium",
-			cssVariable: "--font-body",
-			provider: fontProviders.local(),
-			options: {
-				variants: [
-					{
-						src: ["./src/assets/fonts/ZenMaruGothic-Medium.ttf"],
-						weight: "500",
-						style: "normal",
-					},
-				],
-			},
-			// These variables are composed into --font-sans below. Keep their
-			// fallback lists empty; otherwise a system fallback after this Latin
-			// font prevents the following CJK font from ever being considered.
-			fallbacks: [],
-			optimizedFallbacks: false,
-		},
-		{
-			name: "Loli",
-			cssVariable: "--font-cjk",
-			provider: fontProviders.local(),
-			options: {
-				variants: [
-					{
-						src: ["./src/assets/fonts/loli.ttf"],
-						weight: "400",
-						style: "normal",
-					},
-				],
-			},
-			// The final system fallback belongs to --font-sans, not this partial
-			// CJK font stack.
-			fallbacks: [],
-			optimizedFallbacks: false,
-		},
 	],
 
 	site: siteConfig.siteURL,

@@ -139,6 +139,12 @@ const favicons: Favicon[] =
 	const hue = themeColorFixed ? configHue : (localStorage.getItem("hue") || configHue);
 	document.documentElement.style.setProperty("--hue", hue);
 
+	// Load the user font size scale from local storage (settings panel slider)
+	const fontSizeScale = localStorage.getItem("fontSizeScale");
+	if (fontSizeScale && Number(fontSizeScale) !== 1) {
+		document.documentElement.style.setProperty("--font-size-scale", fontSizeScale);
+	}
+
 	// calculate the --banner-height-extend, which needs to be a multiple of 4 to avoid blurry text
 	let offset = Math.floor(window.innerHeight * (BANNER_HEIGHT_EXTEND / 100));
 	offset = offset - (offset % 4);
@@ -148,6 +154,8 @@ const favicons: Favicon[] =
 	);
 
 	// 自动缩放逻辑 (Moved from MainGridLayout to here for earlier execution)
+	// 通过 --page-scale CSS 变量生效，与 --font-size-scale（用户字号）相乘组合，
+	// 实际计算见 src/styles/main.css 中 html 的 font-size 规则
 	(function () {
 		if (pageScaling && pageScaling.enable) {
 			function adjustPageScale() {
@@ -161,7 +169,7 @@ const favicons: Favicon[] =
 					window.matchMedia("(orientation: portrait)").matches;
 				const isTabletLike = isTouch || window.innerWidth <= 1280;
 				if (isTabletLike || isPortrait) {
-					document.documentElement.style.fontSize = "";
+					document.documentElement.style.removeProperty("--page-scale");
 					return;
 				}
 				const targetWidth = pageScaling.targetWidth || 2000;
@@ -173,7 +181,11 @@ const favicons: Favicon[] =
 				if (scale < 0.85) {
 					scale = 0.85;
 				}
-				document.documentElement.style.fontSize = `${scale * 100}%`;
+				if (scale === 1) {
+					document.documentElement.style.removeProperty("--page-scale");
+				} else {
+					document.documentElement.style.setProperty("--page-scale", String(scale));
+				}
 			}
 
 			// 立即执行一次

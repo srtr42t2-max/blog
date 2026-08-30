@@ -237,6 +237,7 @@ export const en: Translation = {
 	[Key.postListLayoutGrid]: "Grid",
 	[Key.resetAll]: "Reset All",
 	[Key.settingsThemeColor]: "Theme Color",
+	[Key.settingsFontSize]: "Font Size",
 	[Key.settingsWallpaper]: "Wallpaper",
 	[Key.settingsWallpaperEffects]: "Wallpaper Effects",
 	[Key.settingsBanner]: "Banner Options",

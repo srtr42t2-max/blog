@@ -133,13 +133,13 @@ const bannerOffsetByPosition = {
 const bannerOffset =
 	bannerOffsetByPosition[siteConfig.banner.position || "center"];
 
-// CSS 变量由 Astro Font API 自动注入，body 字体通过 --font-sans 组合 --font-body 与 --font-cjk 应用
+// 正文使用系统字体栈（--font-sans，见 src/styles/main.css），仅代码字体通过 Astro Font API 注入
 ---
 
 <!doctype html>
 <html
 	lang={siteLang}
-	class="bg-(--page-bg) text-[14px] md:text-[16px]"
+	class="bg-(--page-bg)"
 	data-overlayscrollbars-initialize
 	data-waves-config-enabled={siteConfig.banner?.waves?.enable ? "true" : "false"}
 	data-banner-title-config-enabled={siteConfig.banner?.homeText?.enable ? "true" : "false"}
@@ -152,8 +152,6 @@ const bannerOffset =
 			@layer properties, theme, base, components, utilities;
 		</style>
 
-		<Font cssVariable="--font-body" preload />
-		<Font cssVariable="--font-cjk" />
 		<Font cssVariable="--font-jetbrains-mono" />
 
 		<script is:inline>

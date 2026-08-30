@@ -27,6 +27,26 @@ export function setHue(hue: number): void {
 	r.style.setProperty("--hue", String(hue));
 }
 
+// ─── Font Size Scale ─────────────────────────────────────────
+
+export const DEFAULT_FONT_SIZE_SCALE = 1;
+
+export function getFontSizeScale(): number {
+	const stored = localStorage.getItem("fontSizeScale");
+	const value = stored ? Number(stored) : DEFAULT_FONT_SIZE_SCALE;
+	return Number.isFinite(value) ? value : DEFAULT_FONT_SIZE_SCALE;
+}
+
+export function setFontSizeScale(scale: number): void {
+	localStorage.setItem("fontSizeScale", String(scale));
+	const root = document.documentElement;
+	if (scale === DEFAULT_FONT_SIZE_SCALE) {
+		root.style.removeProperty("--font-size-scale");
+	} else {
+		root.style.setProperty("--font-size-scale", String(scale));
+	}
+}
+
 export function applyThemeToDocument(theme: LIGHT_DARK_MODE) {
 	const currentIsDark = document.documentElement.classList.contains("dark");
 	const currentTheme = document.documentElement.getAttribute("data-theme");

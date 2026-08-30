@@ -319,6 +319,7 @@ enum I18nKey {
 	postListLayoutGrid = "postListLayoutGrid",
 	resetAll = "resetAll",
 	settingsThemeColor = "settingsThemeColor",
+	settingsFontSize = "settingsFontSize",
 	settingsWallpaper = "settingsWallpaper",
 	settingsWallpaperEffects = "settingsWallpaperEffects",
 	settingsBanner = "settingsBanner",

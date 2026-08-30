@@ -327,6 +327,7 @@ export const zh_CN: Translation = {
 	[Key.postListLayoutGrid]: "网格",
 	[Key.resetAll]: "全部重置",
 	[Key.settingsThemeColor]: "主题色",
+	[Key.settingsFontSize]: "字体大小",
 	[Key.settingsWallpaper]: "壁纸",
 	[Key.settingsWallpaperEffects]: "壁纸效果",
 	[Key.settingsBanner]: "横幅选项",

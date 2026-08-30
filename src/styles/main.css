@@ -19,7 +19,8 @@
 
 /* Migrate from v3 config */
 @theme {
-  --font-sans: var(--font-body), var(--font-cjk), ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* 常见系统字体栈（正文与标题），替代原先的 Zen Maru Gothic / loli 圆润字体 */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
   --breakpoint-md: 768px;
   --breakpoint-lg: 1280px;
@@ -31,6 +32,15 @@ html {
   scroll-behavior: smooth;
   /* 现代浏览器：为滚动条预留稳定空间 */
   scrollbar-gutter: stable;
+  /* 基础字号：--font-size-scale 为用户在设置面板调节的字号比例，默认 1 */
+  font-size: calc(14px * var(--font-size-scale, 1));
+}
+
+/* 桌面端基础字号 16px；--page-scale 为 pageScaling 宽屏自动缩放比例，与用户字号相乘组合 */
+@media (min-width: 768px) {
+  html {
+    font-size: calc(16px * var(--page-scale, 1) * var(--font-size-scale, 1));
+  }
 }
 
 /* 页面顶部渐变高光效果 */

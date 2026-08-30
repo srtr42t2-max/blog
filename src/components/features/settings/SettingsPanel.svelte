@@ -9,6 +9,7 @@ import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import Icon from "@iconify/svelte";
 import {
+	DEFAULT_FONT_SIZE_SCALE,
 	getDefaultBannerTitleEnabled,
 	getDefaultHue,
 	getDefaultOverlayBlur,
@@ -16,6 +17,7 @@ import {
 	getDefaultOverlayOpacity,
 	getDefaultSakuraEnabled,
 	getDefaultWavesEnabled,
+	getFontSizeScale,
 	getHue,
 	getStoredBannerTitleEnabled,
 	getStoredOverlayBlur,
@@ -25,6 +27,7 @@ import {
 	getStoredWallpaperMode,
 	getStoredWavesEnabled,
 	setBannerTitleEnabled,
+	setFontSizeScale,
 	setHue,
 	setOverlayBlur,
 	setOverlayCardOpacity,
@@ -91,8 +94,12 @@ const isWallpaperModeSwitchable = $derived(
 		(fullscreenWallpaperConfig.switchable ?? false),
 );
 
+// 字号调节对所有用户可用
+const showFontSize = true;
+
 const hasAnyContent = $derived(
-	showThemeColor ||
+	showFontSize ||
+		showThemeColor ||
 		isWallpaperModeSwitchable ||
 		allowLayoutSwitch ||
 		hasOverlaySettings ||
@@ -102,6 +109,8 @@ const hasAnyContent = $derived(
 
 let hue = $state(getHue());
 const defaultHue = getDefaultHue();
+let fontSizeScale = $state(getFontSizeScale());
+const defaultFontSizeScale = DEFAULT_FONT_SIZE_SCALE;
 let wallpaperMode = $state(defaultWallpaperMode as WALLPAPER_MODE);
 let currentLayout = $state(defaultLayout);
 let overlayOpacity = $state(getDefaultOverlayOpacity());
@@ -132,6 +141,11 @@ let bannerSettingsIsDefault = $derived(
 
 function resetHue() {
 	hue = defaultHue;
+	requestAnimationFrame(refreshAllRangeProgress);
+}
+
+function resetFontSizeScale() {
+	fontSizeScale = defaultFontSizeScale;
 	requestAnimationFrame(refreshAllRangeProgress);
 }
 
@@ -288,6 +302,10 @@ $effect(() => {
 });
 
 $effect(() => {
+	setFontSizeScale(fontSizeScale);
+});
+
+$effect(() => {
 	if (wallpaperMode === WALLPAPER_OVERLAY) {
 		if (isOverlayOpacitySwitchable) setOverlayOpacity(overlayOpacity);
 		if (isOverlayBlurSwitchable) setOverlayBlur(overlayBlur);
@@ -348,6 +366,50 @@ $effect(() => {
 			</div>
 		</div>
 	{/if}
+
+	<div class="mt-2 mb-2">
+		<div class="flex flex-row gap-2 mb-2 items-center justify-between">
+			<div
+				class="flex gap-2 font-bold text-lg text-neutral-900 dark:text-neutral-100 transition relative ml-3
+				before:w-1 before:h-4 before:rounded-md before:bg-(--primary)
+				before:absolute before:-left-3 before:top-1/2 before:-translate-y-1/2"
+			>
+				{i18n(I18nKey.settingsFontSize)}
+				<button
+					aria-label="Reset to Default"
+					class="btn-regular w-7 h-7 rounded-md active:scale-90"
+					class:opacity-0={fontSizeScale === defaultFontSizeScale}
+					class:pointer-events-none={fontSizeScale === defaultFontSizeScale}
+					onclick={resetFontSizeScale}
+				>
+					<div class="text-(--btn-content)">
+						<Icon icon="material-symbols:refresh" class="text-[0.875rem]" />
+					</div>
+				</button>
+			</div>
+			<div class="flex gap-1">
+				<div
+					class="transition bg-(--btn-regular-bg) w-12 h-7 flex justify-center
+					font-bold text-sm items-center text-(--btn-content)"
+				>
+					{Math.round(fontSizeScale * 100)}%
+				</div>
+			</div>
+		</div>
+		<div class="w-full h-6 px-1 bg-[oklch(0.80_0.10_0)] dark:bg-[oklch(0.70_0.10_0)] rounded select-none">
+			<input
+				aria-label={i18n(I18nKey.settingsFontSize)}
+				type="range"
+				min="0.8"
+				max="1.2"
+				bind:value={fontSizeScale}
+				class="slider"
+				id="fontSizeSlider"
+				step="0.05"
+				style="width: 100%"
+			/>
+		</div>
+	</div>
 
 	{#if isWallpaperModeSwitchable}
 		<div class="mt-2 mb-2">

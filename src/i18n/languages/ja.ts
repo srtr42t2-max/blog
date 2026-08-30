@@ -239,6 +239,7 @@ export const ja: Translation = {
 	[Key.postListLayoutGrid]: "グリッド",
 	[Key.resetAll]: "すべてリセット",
 	[Key.settingsThemeColor]: "テーマカラー",
+	[Key.settingsFontSize]: "フォントサイズ",
 	[Key.settingsWallpaper]: "壁紙",
 	[Key.settingsWallpaperEffects]: "壁紙効果",
 	[Key.settingsBanner]: "バナーオプション",
