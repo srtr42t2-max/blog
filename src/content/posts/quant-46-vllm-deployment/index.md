@@ -87,7 +87,7 @@ flowchart TD
 vLLM 本身不做量化算法，它是**量化 checkpoint 的消费方**。生态里有两大生产线：
 
 - **LLM Compressor（原 neuralmagic/llm-compressor，现归 vLLM 项目）**：统一的后训练量化工具链，产出 **compressed-tensors** 格式。一个格式描述 W4A16、W8A8-INT8、W8A8-FP8、NVFP4 等各种方案，vLLM 原生加载。优点是与 vLLM 同步演进，新格式（如 NVFP4）最先在这里可用。
-- **垂直工具链**：AutoAWQ（AWQ）、AutoGPTQ（GPTQ）、NVIDIA TensorRT Model Optimizer（ModelOpt，FP8/NVFP4）。产出各自格式的 safetensors checkpoint，vLLM 按 `config.json` 里的 `quantization_config` 字段自动识别。
+- **垂直工具链**：AutoAWQ（AWQ）、AutoGPTQ（GPTQ）、NVIDIA TensorRT Model Optimizer（ModelOpt，FP8/NVFP4）。产出各自格式的 safetensors checkpoint，vLLM 按 `config.json` 里的 `quantization_config` 字段自动识别。注意 AutoAWQ 与 AutoGPTQ 均已停止维护（AutoAWQ 仓库 2025 年 5 月归档，AutoGPTQ 的活跃后继是 GPTQModel；核验于 2026-08-13）——存量 checkpoint 仍可正常加载，新量化任务建议走 LLM Compressor。
 
 实务上，HuggingFace 上已有大量社区预量化 checkpoint（搜 `AWQ`、`GPTQ`、`FP8` 后缀），**先找现成的，没有再自己量化**——自己量化要过一遍校准数据和验证流程，成本不低。
 
@@ -98,7 +98,7 @@ vLLM 本身不做量化算法，它是**量化 checkpoint 的消费方**。生�
 | FP16/BF16 | ✅ 原生 | ✅ 原生 | ✅ 原生 | 精度基线与回退路径 |
 | GPTQ-INT4 | ✅ Marlin kernel | ✅ Marlin kernel | ✅ | 通用省显存，存量最大 |
 | AWQ-INT4 | ✅ Marlin kernel | ✅ Marlin kernel | ✅ | 省显存且对精度敏感 |
-| FP8 W8A8 | ❌ 无 FP8 单元 | ✅ 原生 Tensor Core | ✅ 原生 | 在线低延迟、高精度要求 |
+| FP8 W8A8 | ❌ 原生计算（可经 Marlin 以 weight-only 方式加载 FP8 checkpoint，无算力收益） | ✅ 原生 Tensor Core | ✅ 原生 | 在线低延迟、高精度要求 |
 | NVFP4 | ❌ | ❌ 无 FP4 单元 | ✅ SM100 原生 | 新一代极限吞吐 |
 | GGUF | ⚠️ 实验性 | ⚠️ 实验性 | ⚠️ 实验性 | 复用 llama.cpp 资产，非生产首选 |
 
@@ -202,7 +202,7 @@ RTX 4090 KV budget after INT4 weights: 15.6 GiB -> FP8 KV still caps concurrency
 ### 4.1 环境准备与模型下载
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, Python 3.11
+# 测试环境：H100 80GB, CUDA 12.4, Python 3.11（核验于 2026-08-13）
 pip install "vllm==0.10.0" "autoawq" "transformers" "datasets"
 
 # 从 HuggingFace 下载 FP16 原模型（约 15GB）
@@ -214,7 +214,7 @@ huggingface-cli download Qwen/Qwen2.5-7B-Instruct \
 
 ```python
 # quantize_awq.py
-# 测试环境：A100 40GB, CUDA 12.4, autoawq 0.2.x, transformers 4.4x
+# 测试环境：A100 40GB, CUDA 12.4, autoawq 0.2.x, transformers 4.4x（核验于 2026-08-13；AutoAWQ 已归档，见下文说明）
 from awq import AutoAWQForCausalLM
 from transformers import AutoTokenizer
 
@@ -240,12 +240,43 @@ tokenizer.save_pretrained(quant_path)
 print(f"saved to {quant_path}")
 ```
 
-运行约 10–20 分钟（7B、单卡 40GB 足够），产物是标准 safetensors + `config.json` 里的 `quantization_config: awq` 字段，vLLM 加载时自动识别。注意 AutoAWQ 项目更新放缓，新版本 transformers 可能有兼容性问题，卡住时按 issue 区建议锁版本；另一条更"面向未来"的路线是用 LLM Compressor 产 compressed-tensors 格式的 W4A16。
+运行约 10–20 分钟（7B、单卡 40GB 足够），产物是标准 safetensors + `config.json` 里的 `quantization_config: awq` 字段，vLLM 加载时自动识别。**注意：AutoAWQ 仓库已于 2025 年 5 月正式归档、停止维护（核验于 2026-08-13）**，与新版本 transformers 的兼容性问题不会再修复，上述脚本仅建议用于复用存量 AWQ 流程与 checkpoint。新量化任务的主路线是 LLM Compressor 的 AWQ 支持——产出 compressed-tensors 格式的 W4A16，vLLM 同样自动识别。等价脚本如下（基于官方 `examples/awq/llama_example.py`，核验于 2026-08-13）：
+
+```python
+# quantize_awq_llmcompressor.py
+# 测试环境：A100 40GB, CUDA 12.4, llmcompressor + transformers（核验于 2026-08-13）
+from datasets import load_dataset
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+from llmcompressor import oneshot
+from llmcompressor.modifiers.quantization import QuantizationModifier
+from llmcompressor.modifiers.transform.awq import AWQModifier
+
+MODEL_ID = "Qwen/Qwen2.5-7B-Instruct"
+model = AutoModelForCausalLM.from_pretrained(MODEL_ID)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+
+# 校准数据：官方示例用 ultrachat 256 条起步，生产建议换业务真实样本
+ds = load_dataset("HuggingFaceH4/ultrachat_200k", split="train_sft[:256]").shuffle(seed=42)
+ds = ds.map(lambda ex: {"text": tokenizer.apply_chat_template(ex["messages"], tokenize=False)})
+
+recipe = [
+    AWQModifier(duo_scaling="both"),
+    QuantizationModifier(ignore=["lm_head"], scheme="W4A16_ASYM", targets=["Linear"]),
+]
+
+oneshot(model=model, dataset=ds, recipe=recipe,
+        max_seq_length=512, num_calibration_samples=256)
+
+SAVE_DIR = "Qwen2.5-7B-Instruct-awq-w4a16"
+model.save_pretrained(SAVE_DIR, save_compressed=True)  # compressed-tensors 格式
+tokenizer.save_pretrained(SAVE_DIR)
+```
 
 ### 4.3 vLLM 启动服务
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 vllm serve ./models/Qwen2.5-7B-Instruct-AWQ \
     --max-model-len 32768 \
     --gpu-memory-utilization 0.90 \
@@ -262,7 +293,7 @@ vllm serve ./models/Qwen2.5-7B-Instruct-AWQ \
 vLLM 仓库自带 `benchmarks/benchmark_throughput.py`（新版也提供 `vllm bench throughput` CLI）：
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 git clone https://github.com/vllm-project/vllm.git && cd vllm
 
 python benchmarks/benchmark_throughput.py \
@@ -278,7 +309,7 @@ python benchmarks/benchmark_throughput.py \
 
 ```bash
 # 在线模式：对 4.3 启动的服务发压（ShareGPT 数据集需自行下载）
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 python benchmarks/benchmark_serving.py \
     --backend vllm \
     --model ./models/Qwen2.5-7B-Instruct-AWQ \
@@ -301,7 +332,7 @@ lm_eval --model vllm \
 | AWQ-INT4 | ~4.0 GiB | ~1.24M tokens | ~5,900 tok/s | ~1.4× |
 | AWQ-INT4 + FP8 KV | ~4.0 GiB | ~2.47M tokens | ~6,000 tok/s | ~1.4× |
 
-*表 2：7B 模型在 H100 上的示例对比（参考值，实测随硬件与版本变化）。注意 INT4 的吞吐增益来自 decode 带宽节省，输入越长、batch 越大，增益越向 1 收敛；FP8 KV 的收益主要体现在容量（并发上限）而非单请求速度。*
+*表 2：7B 模型在 H100 上的示例对比（参考值，实测随硬件与版本变化；口径为 §4.4 命令的离线压测——512/128 输入输出、1000 条 prompt、单次运行的整轮平均吞吐，未附多轮统计分布）。注意 INT4 的吞吐增益来自 decode 带宽节省，~1.4× 成立于 decode 仍受权重读带宽限制的负载区间；batch 进一步饱和、decode 转为计算瓶颈后，反量化开销会让增益向 1 收敛甚至倒挂（见 FAQ Q2）。FP8 KV 的收益主要体现在容量（并发上限）而非单请求速度。*
 
 精度侧的经验值：7B 级模型 AWQ-INT4(g128) 相对 BF16 的 wikitext perplexity 劣化通常在 1%–3% 相对量级（参考值），指令遵循类基准（MT-Bench 等）的下降通常更小。劣化超阈值时的排查顺序：group size 是否过粗 → 校准集是否偏离业务分布 → 是否误伤了 MoE 专家层或 Embedding。
 

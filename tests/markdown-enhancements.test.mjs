@@ -150,14 +150,14 @@ describe("Markdown AST enhancements", () => {
 			children: [
 				{
 					type: "paragraph",
-					children: [{ type: "text", value: "[[markdown-extended]]" }],
+					children: [{ type: "text", value: "[[welcome]]" }],
 				},
 				{
 					type: "paragraph",
 					children: [
 						{
 							type: "text",
-							value: "See [[markdown-extended|extended syntax]].",
+							value: "See [[welcome|extended syntax]].",
 						},
 					],
 				},

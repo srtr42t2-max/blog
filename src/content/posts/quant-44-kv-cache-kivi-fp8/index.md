@@ -151,7 +151,7 @@ KV Cache 与权重量化最本质的区别是：**KV 的值是推理时才产生
 
 **scale 静态 vs 动态**：
 
-- 静态 scale：离线校准出各层的 k_scale/v_scale，写进 checkpoint 或独立 JSON（vLLM 的 `quantization_param_path`），推理时直接加载。省掉在线归约开销，但校准集与真实分布漂移时会掉精度。
+- 静态 scale：离线校准出各层的 k_scale/v_scale，写进量化 checkpoint（如 llm-compressor 产出的 FP8 checkpoint，vLLM 加载时自动读取）。省掉在线归约开销，但校准集与真实分布漂移时会掉精度。
 - 动态 scale：像 KIVI 那样每个 group 现场归约、现场存储。永远贴合当前数据，代价是每个 group 多一次归约计算和一份元数据读写。
 
 **量化点（Prefill vs Decode）与冷热分离**：
@@ -181,7 +181,7 @@ flowchart LR
 
 1. **量化位置在归一化之后**。K/V 写在 RMSNorm（Root Mean Square Normalization，均方根归一化）与 RoPE 之后，分布天然零中心，对称量化即可，不必为非对称零点浪费码点。更激进的方案（QuaRot 一类）在量化前做逐通道归一化或 Hadamard 旋转，把 outlier channel 的能量摊平到全部 channel，从源头消灭粒度问题。
 2. **Residual / attention sink 保留**。除 KIVI 的最近 R 个 token 外，序列最前几个 token（attention sink）的注意力分数极大，量化误差会被成比例放大，值得永久保留 FP16——KVQuant 正是靠这条把位宽压得更低。
-3. **混合精度 KV Cache**。敏感度在全模型并不均匀：有的层、有的 head 对量化更敏感。按层/按头/按对象分配位宽（例如 K 4-bit、V 2-bit，或敏感层保 FP8、其余 2-bit），比一刀切的固定位宽更接近"显存-精度"的帕累托前沿。vLLM 新版本的 FP8 KV Cache 也已支持跳过指定层不做量化。
+3. **混合精度 KV Cache**。敏感度在全模型并不均匀：有的层、有的 head 对量化更敏感。按层/按头/按对象分配位宽（例如 K 4-bit、V 2-bit，或敏感层保 FP8、其余 2-bit），比一刀切的固定位宽更接近"显存-精度"的帕累托前沿。
 
 ## 6. 实战：vLLM 启用 FP8 KV Cache
 
@@ -256,7 +256,7 @@ KIVI 2-bit (g=32,R=128)   :  0.76 GiB | 相对 FP16 = 19.1% | 压缩比  5.2x
 ### 6.2 vllm serve 启动
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 vllm serve meta-llama/Llama-3.1-8B-Instruct \
   --kv-cache-dtype fp8 \
   --calculate-kv-scales \
@@ -266,13 +266,13 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct \
 
 关键参数：
 
-- `--kv-cache-dtype fp8`：开启 FP8 KV Cache，CUDA 上等同 `fp8_e4m3`。合法取值：`auto`（默认，跟随模型 dtype）、`fp8`、`fp8_e4m3`、`fp8_e5m2`，新版本另有 `int8`。
+- `--kv-cache-dtype fp8`：开启 FP8 KV Cache，CUDA 上等同 `fp8_e4m3`。合法取值：`auto`（默认，跟随模型 dtype）、`fp8`、`fp8_e4m3`、`fp8_e5m2`，另有平台特定的 `fp8_inc`（对照 vLLM v0.10.0 源码 `CacheDType` 核验于 2026-08-13）。注意 vLLM 主线不支持 INT8 KV Cache——那是 TensorRT-LLM 等框架的能力。
 - `--calculate-kv-scales`：在线动态估算 k_scale/v_scale。不开启时，vLLM 会尝试从 checkpoint 加载 scale，加载不到则默认 1.0（并打 warning）——默认值在 KV 幅值超出 E4M3 舒适区时会造成截断，生产上建议显式开启或用校准文件。
 
 ### 6.3 离线 LLM() API
 
 ```python
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 from vllm import LLM, SamplingParams
 
 llm = LLM(
@@ -290,16 +290,16 @@ out = llm.generate(
 print(out[0].outputs[0].text)
 ```
 
-追求更稳的精度时，可以用 vLLM 仓库 `examples/other/fp8/README.md` 提供的脚本离线生成 `kv_cache_scales.json`，再通过 `quantization_param_path="./kv_cache_scales.json"` 传入——来自真实校准数据的静态 scale 比默认值 1.0 可靠得多。
+追求更稳的精度时，改用静态 scale 路线：用 llm-compressor 对模型做 FP8 KV Cache 校准（官方 `examples/quantization_kv_cache`），产出自带 `k_scale`/`v_scale` 的量化 checkpoint，vLLM 加载时自动读取——来自真实校准数据的静态 scale 比默认值 1.0 可靠得多。旧资料常提的 `quantization_param_path` + `examples/other/fp8` 是 V0 遗留路径，vLLM v0.10.0 源码中两者均已不存在（核验于 2026-08-13）。
 
 ### 6.4 验证显存与生成质量
 
-**生效验证看物理证据**：启动日志中 `# GPU blocks` 的数量应接近翻倍（block 数 × block_size = KV 池可缓存的 token 总数），同上下文下的最大并发槽位随之翻倍。注意 `nvidia-smi` 的总显存不会变——vLLM 按 `gpu_memory_utilization` 预分配池子，变化的是池子的"容量"而非"占地面积"。
+**生效验证看物理证据**：启动日志中 `GPU KV cache size: ... tokens` 报告的可缓存 token 总数应接近翻倍（这是 0.10 默认 V1 引擎的日志行；V0 时代的对应行是 `# GPU blocks`），同上下文下的最大并发槽位随之翻倍。注意 `nvidia-smi` 的总显存不会变——vLLM 按 `gpu_memory_utilization` 预分配池子，变化的是池子的"容量"而非"占地面积"。
 
 **性能对比**用官方 benchmark 脚本：
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 python benchmarks/benchmark_throughput.py \
   --model meta-llama/Llama-3.1-8B-Instruct \
   --input-len 32000 --output-len 128 --num-prompts 16 \
@@ -327,7 +327,7 @@ flowchart TD
     C -->|是| D["FP8 E4M3 KV<br/>vllm serve --kv-cache-dtype fp8"]
     C -->|否| E["INT8 KV；或用 W4A16 权重量化腾显存"]
     D --> F{"长输入 A/B 精度达标？"}
-    F -->|否| G["校准 scale：--calculate-kv-scales<br/>或 quantization_param_path"]
+    F -->|否| G["校准 scale：--calculate-kv-scales<br/>或 llm-compressor 校准 checkpoint"]
     F -->|是| H["上线"]
     G --> H
     D -. "研究场景、追求极致压缩" .-> I["KIVI 2-bit（专用 kernel）"]
@@ -339,12 +339,12 @@ flowchart TD
 - KIVI 的非对称设计来自分布观察：Key 有 channel 级 outlier → per-channel；Value 没有 → per-token。group-wise 把 2-bit 的破坏半径收窄到一个 group，residual token 保住访问最频繁的最近窗口。
 - FP8 的指数位让它对 outlier 天然鲁棒（本机实验：正常元素误差 2.65%，INT8 per-tensor 为 90.4%）；推理 KV 选 E4M3，但需要 Ada/Hopper 及更新的硬件才有原生支持。
 - KV 量化必然在线；scale 可静态（校准文件）可动态（逐 group 现算）；冷热分离——当前 chunk 用原始浮点、历史部分读量化值——是所有严肃实现的共同结构。
-- 生产落地路径：vLLM `--kv-cache-dtype fp8` + `--calculate-kv-scales` 起步，用 block 数验证生效、用长输入 A/B 验证精度，再考虑更激进的位宽。
+- 生产落地路径：vLLM `--kv-cache-dtype fp8` + `--calculate-kv-scales` 起步，用启动日志的 `GPU KV cache size` 验证生效、用长输入 A/B 验证精度，再考虑更激进的位宽。
 
 ## 常见问题（FAQ）
 
 **Q1：开了 `--kv-cache-dtype fp8`，为什么 `nvidia-smi` 显存没少？**
-vLLM 按 `gpu_memory_utilization` 预分配 KV 池，池子的字节数不变、能装的 token 数翻倍。看启动日志的 `# GPU blocks` 数量或最大并发能力，而不是总显存。
+vLLM 按 `gpu_memory_utilization` 预分配 KV 池，池子的字节数不变、能装的 token 数翻倍。看启动日志 `GPU KV cache size` 报告的可缓存 token 数或最大并发能力，而不是总显存。
 
 **Q2：FP8 KV Cache 和 FP8 权重量化（`--quantization fp8`）是一回事吗？**
 不是，两个开关互相独立：`--kv-cache-dtype` 压的是 KV Cache 的存储，`--quantization fp8` 压的是权重与 GEMM 计算。可以只开任意一个，也可以同时开。
@@ -353,10 +353,10 @@ vLLM 按 `gpu_memory_utilization` 预分配 KV 池，池子的字节数不变、
 存储格式上可以，但老架构没有原生 FP8 转换指令，读写转换走软件路径，decode 可能反而更慢。老卡更现实的选择是 INT8 KV，或先做 W4A16 权重量化给 KV 腾显存。
 
 **Q4：开了 FP8 后长输入输出胡话、短输入正常，怎么回事？**
-典型的 scale 问题：默认 scale=1.0 时超出 E4M3 表示能力的大幅值被截断，上下文越长 outlier 越主导。先加 `--calculate-kv-scales`；仍不行就用官方脚本离线生成 `kv_cache_scales.json`，走 `quantization_param_path` 加载。
+典型的 scale 问题：默认 scale=1.0 时超出 E4M3 表示能力的大幅值被截断，上下文越长 outlier 越主导。先加 `--calculate-kv-scales`；仍不行就用 llm-compressor 做 FP8 KV Cache 校准，产出自带 `k_scale`/`v_scale` 的 checkpoint 直接加载。
 
 **Q5：能在 vLLM 里直接用 KIVI 2-bit 吗？**
-不能。KIVI 官方实现是基于 HuggingFace Transformers 改造的研究代码，依赖定制的分组量化写路径与 attention kernel；vLLM 主线（截至 0.10）的 `kv_cache_dtype` 最低只到 8 bit（`fp8`/`int8`）。想要 4~8 bit 之间的生产级折中，可以关注 TensorRT-LLM、SGLang 的新格式支持，或等更低位宽方案的工程化落地。
+不能。KIVI 官方实现是基于 HuggingFace Transformers 改造的研究代码，依赖定制的分组量化写路径与 attention kernel；vLLM 主线（截至 0.10）的 `kv_cache_dtype` 最低只到 8 bit（`fp8` 系列，不含 INT8）。想要 4~8 bit 之间的生产级折中，可以关注 TensorRT-LLM、SGLang 的新格式支持，或等更低位宽方案的工程化落地。
 
 ## 延伸阅读
 
@@ -373,7 +373,6 @@ vLLM 按 `gpu_memory_utilization` 预分配 KV 池，池子的字节数不变、
 - QuaRot: Outlier-Free 4-Bit Inference in Rotated LLMs — https://arxiv.org/abs/2404.00456
 - Efficient Streaming Language Models with Attention Sinks (StreamingLLM) — https://arxiv.org/abs/2309.17453
 - vLLM Documentation: Quantized KV Cache — https://docs.vllm.ai/en/latest/features/quantization/quantized_kvcache/
-- vLLM Documentation: FP8 E4M3 KV Cache — https://docs.vllm.ai/en/latest/quantization/fp8_e4m3_kvcache.html
-- vLLM FP8 KV scale 校准示例（examples/other/fp8） — https://github.com/vllm-project/vllm/blob/main/examples/other/fp8/README.md
+- llm-compressor FP8 KV Cache 校准示例（examples/quantization_kv_cache） — https://github.com/vllm-project/llm-compressor/tree/main/examples/quantization_kv_cache
 - vLLM benchmark_throughput.py — https://github.com/vllm-project/vllm/blob/main/benchmarks/benchmark_throughput.py
 - OCP 8-bit Floating Point Specification (OFP8) — https://www.opencompute.org/documents/ocp-8-bit-floating-point-specification-of8p-revision-1-0-2023-06-20-pdf

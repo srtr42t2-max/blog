@@ -20,7 +20,7 @@ draft: false
 
 ## 本章简介
 
-本篇是《AIInfraGuide》模块四"推理优化"第 4 章"量化"的第 3 篇（共 6 篇）。第 4.1 篇讲了量化的数学基础与 INT8 工程落地，第 4.2 篇讨论了 KV Cache 量化；本篇聚焦目前线上部署最主流的组合——**Weight-only INT4（W4A16）**：权重压到 4 bit，激活保持 FP16/BF16。
+本篇是《AIInfraGuide》模块四"推理优化"第 4 章"量化"的第 3 篇（共 6 篇）。第 4.1 篇讲了量化的数学基础与 INT8 工程落地，第 4.2 篇讨论了 SmoothQuant 与 W8A8；本篇聚焦目前线上部署最主流的组合——**Weight-only INT4（W4A16）**：权重压到 4 bit，激活保持 FP16/BF16。
 
 要解决的问题有三个：
 
@@ -49,7 +49,7 @@ LLM 推理分两个阶段：prefill 一次性吃下全部输入 token，矩阵�
 
 ### 2.1 问题：朴素 RTN 丢掉了什么
 
-最简单的权重量化是 RTN（Round-to-Nearest，四舍五入到最近码点）：每个权重独立取整，误差互不相关。INT8 时没问题，INT4 时码点只剩 16 个，独立取整引入的扰动足以让 perplexity 明显劣化——上表 AWQ 论文的数据里，Llama-2-7B INT4-g128 下 RTN 把 WikiText-2 PPL 从 5.47 打到 5.73，INT3 下更是劣化到 6.66。
+最简单的权重量化是 RTN（Round-to-Nearest，四舍五入到最近码点）：每个权重独立取整，误差互不相关。INT8 时没问题，INT4 时码点只剩 16 个，独立取整引入的扰动足以让 perplexity 明显劣化——AWQ 论文的数据里（第 4 节将给出对比表），Llama-2-7B INT4-g128 下 RTN 把 WikiText-2 PPL 从 5.47 打到 5.73，INT3 下更是劣化到 6.66。
 
 GPTQ 的出发点：**量化一个权重时，可以用剩余未量化的权重去补偿它造成的输出误差**。形式化地，对每一层求
 
@@ -191,7 +191,7 @@ Group size（g128/g64/g32）决定多少个权重共享一组 scale/zero：g 越
 
 ### 5.2 Marlin 的设计与实测数字
 
-Marlin（Mixed-precision Auto-Regressive LINear kernels，Frantar et al. 2024）正面解决了"batch 16-32 区间如何保持 memory-bound"的问题，核心手段有四：
+Marlin（MARLIN: Mixed-Precision Auto-Regressive Parallel Inference on Large Language Models，Frantar et al. 2024；GitHub 仓库早期展开为 Mixed-precision Auto-Regressive LINear kernels）正面解决了"batch 16-32 区间如何保持 memory-bound"的问题，核心手段有四：
 
 - **全程 packed，寄存器内反量化**：INT4 权重从全局内存到共享内存到寄存器始终保持 4-bit 打包形态，只在喂给 tensor core 前一刻才在寄存器里展开成 FP16，循环内永不物化 FP16 权重块；
 - **定制布局**：权重按 tensor core 消费顺序预先重排（striped/permuted layout），反量化输出的每个线程片段恰好对上 MMA 指令的寄存器排布，零 shuffle 开销；
@@ -207,7 +207,7 @@ Marlin 论文报告：在 A10 上对大矩阵做 kernel 级测试，batch 16-32 
 ### 6.1 AutoGPTQ 量化脚本
 
 ```python
-# 测试环境：H100 80GB, CUDA 12.4, torch 2.5.1, auto-gptq 0.7.x, transformers 4.46
+# 测试环境：H100 80GB, CUDA 12.4, torch 2.5.1, auto-gptq 0.7.x, transformers 4.46（核验于 2026-08-13）
 # 注：AutoGPTQ 已停止维护，新模型建议用 GPTQModel（API 基本一致）
 from auto_gptq import AutoGPTQForCausalLM, BaseQuantizeConfig
 from transformers import AutoTokenizer
@@ -240,7 +240,7 @@ print("saved to", out)
 ### 6.2 AutoAWQ 量化脚本
 
 ```python
-# 测试环境：H100 80GB, CUDA 12.4, torch 2.5.1, autoawq 0.2.x, transformers 4.46
+# 测试环境：H100 80GB, CUDA 12.4, torch 2.5.1, autoawq 0.2.x, transformers 4.46（核验于 2026-08-13）
 from awq import AutoAWQForCausalLM
 from transformers import AutoTokenizer
 
@@ -267,7 +267,7 @@ print("saved to", out)
 ### 6.3 vLLM 加载与吞吐对比
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 # 方式一：在线服务。vLLM 读取 config.json 的 quantization_config 自动识别，
 # Ampere+ 上自动选用 gptq_marlin；显式指定用于强制或排障
 vllm serve ./Qwen2.5-7B-Instruct-gptq-int4 \
@@ -341,7 +341,7 @@ flowchart TD
 - **AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration**（Lin, Tang, Yang et al., 2023 / MLSys 2024）：显著权重与等价缩放的完整推导，以及 TinyChat 的系统设计；
 - **MARLIN: Mixed-Precision Auto-Regressive Parallel Inference on Large Language Models**（Frantar, Castro, Chen, Hoefler, Alistarh, 2024）：第 5 节全部数字的出处，想写 W4A16 kernel 必读；
 - **Optimal Brain Compression**（Frantar & Alistarh, NeurIPS 2022）与 **Optimal Brain Surgeon**（Hassibi & Stork, 1993）：GPTQ 的数学源头；
-- **本系列**：第 4.1 篇《INT8 量化实战指南：从数学原理到工程落地的完整思路》（量化映射、粒度、验证方法论）、第 4.2 篇 KV Cache 量化；后续第 4.5 篇将讨论 FP8 与 W8A8 路线。
+- **本系列**：第 4.1 篇《量化基础：从 FP32 到 INT4 的压缩艺术》（量化映射、粒度、验证方法论）、第 4.2 篇《W8A8 量化：SmoothQuant 与 Activation Outlier 问题》；后续第 4.4 篇讨论 KV Cache 量化，第 4.5 篇讨论 FP8 与 NVFP4/MXFP4。
 
 ## 参考文献
 

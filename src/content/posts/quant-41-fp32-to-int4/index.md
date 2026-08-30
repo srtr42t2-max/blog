@@ -23,7 +23,7 @@ image: ./4.1-fp16-vs-int8-dist.png
 
 本篇是《AIInfraGuide》模块四"推理优化"第 4 章"量化"的第 1 篇（全章共 6 篇），负责打地基。
 
-大模型推理的瓶颈往往不是算力而是访存：decode 阶段每生成一个 token 都要把全部权重从显存读一遍，**把每个参数的字节数砍半，理论耗时就能砍半**。量化（Quantization，量化）正是直接攻击"字节数"这个分母的第一手段。但"INT8 是什么、为什么能压缩、代价是什么"这类问题，很多工程师并没有从数学上讲清楚过。
+大模型推理的瓶颈往往不是算力而是访存：decode 阶段每生成一个 token 都要把全部权重从显存读一遍，**把每个参数的字节数砍半，理论耗时就能砍半**。量化（Quantization）正是直接攻击"字节数"这个分母的第一手段。但"INT8 是什么、为什么能压缩、代价是什么"这类问题，很多工程师并没有从数学上讲清楚过。
 
 本篇要解决四个问题：
 
@@ -93,7 +93,7 @@ INT8/INT4 是另一套逻辑：**没有指数，所有可表示值构成一个�
 
 ### 2.2 对称量化：零点固定在 0
 
-对称量化（Symmetric Quantization，对称量化）令 z = 0，码点关于 0 对称：
+对称量化（Symmetric Quantization）令 z = 0，码点关于 0 对称：
 
 ```text
 s = max|x| / q_max        （INT8 时 q_max = 127）
@@ -104,7 +104,7 @@ q = clamp(round(x / s), -127, 127)
 
 ### 2.3 非对称量化：让码点铺满实际区间
 
-非对称量化（Asymmetric Quantization，非对称量化）允许 z ≠ 0，用实际的最小/最大值定标：
+非对称量化（Asymmetric Quantization）允许 z ≠ 0，用实际的最小/最大值定标：
 
 ```text
 s = (x_max - x_min) / (q_max - q_min)
@@ -276,7 +276,7 @@ if __name__ == "__main__":
     print(f"per-channel max|err| = {err_c:.6f}")
 ```
 
-自查要点：`amax(dim=1, keepdim=True)` 保持广播形状；`torch.round` 为四舍五入（half-to-even）；INT8 张量参与运算前先显式转回 FP16，避免整型溢出语义。注意真实 kernel 里并不会真的先反量化再做 GEMM（那等于白量化），而是 int8×int8 累加成 int32、最后一次性乘 scale——kernel 级优化属于后续篇章的话题。
+自查要点：`amax(dim=1, keepdim=True)` 保持广播形状；`torch.round` 为银行家舍入（round-half-to-even），并非严格的四舍五入，但两者同样无系统性偏差；INT8 张量参与运算前先显式转回 FP16，避免整型溢出语义。注意真实 kernel 里并不会真的先反量化再做 GEMM（那等于白量化），而是 int8×int8 累加成 int32、最后一次性乘 scale——kernel 级优化属于后续篇章的话题。
 
 ### 6.3 可视化：量化前后分布对比
 
@@ -344,7 +344,7 @@ fig.savefig("4.1-fp16-vs-int8-dist.png", dpi=150)   # 保存到当前目录，�
 想快速体验工业级量化推理，vLLM 一条命令即可（FP8 动态量化 + FP8 KV Cache，KV Cache 即 Key-Value Cache，键值缓存）：
 
 ```bash
-# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1
+# 测试环境：H100 80GB, CUDA 12.4, vLLM 0.10.0, torch 2.5.1（核验于 2026-08-13）
 vllm serve meta-llama/Llama-3.1-8B-Instruct \
     --quantization fp8 --kv-cache-dtype fp8
 ```
@@ -380,8 +380,8 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct \
 - **Mixed Precision Training**（Micikevicius et al., 2017）：FP16 混合精度训练的奠基之作，理解 FP16/BF16 取舍的起点；
 - **A White Paper on Neural Network Quantization**（Nagel et al., 2021）：量化领域最系统的综述，PTQ/QAT、粒度、校准策略均有覆盖；
 - **LLM.int8()**（Dettmers et al., 2022）：首次系统揭示 LLM 激活的 outlier feature 现象——本系列第 4.2 篇 SmoothQuant 的问题源头；
-- **GPTQ**（Frantar et al., 2022）与 **AWQ**（Lin et al., 2023）：INT4 权重量化的两个事实标准，分别对应本系列第 4.3、4.4 篇；
-- **NVIDIA Transformer Engine 文档**：FP8 在真实训练/推理中的工程形态，对应本系列第 4.6 篇。
+- **GPTQ**（Frantar et al., 2022）与 **AWQ**（Lin et al., 2023）：INT4 权重量化的两个事实标准，均在本系列第 4.3 篇展开；
+- **NVIDIA Transformer Engine 文档**：FP8 在真实训练/推理中的工程形态，对应本系列第 4.5 篇。
 
 ## 参考文献
 
